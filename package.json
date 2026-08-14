@@ -1,0 +1,26 @@
+﻿{
+    "name":  "@deepseek-ai/dsh-usage-monitor",
+    "version":  "0.1.0",
+    "private":  false,
+    "type":  "module",
+    "description":  "DeepSeek Harness Web GUI plugin: real-time token usage and API balance monitor panel.",
+    "main":  "lib/index.js",
+    "exports":  {
+                    ".":  {
+                              "default":  "./lib/index.js"
+                          },
+                    "./client":  "./dist/client.js",
+                    "./package.json":  "./package.json"
+                },
+    "dsh":  {
+                "client":  {
+                               "platform":  "web",
+                               "immediately":  false
+                           }
+            },
+    "peerDependencies":  {
+                             "@deepseek-ai/cordis":  "^4.0.1",
+                             "@deepseek-ai/dsh-credentials":  "^0.1.0-rc.6",
+                             "@deepseek-ai/schemastery":  "^3.18.1"
+                         }
+}
