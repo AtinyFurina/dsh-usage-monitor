@@ -268,7 +268,16 @@ window.__ModuleLoader__.load({
 			var totals = payload ? payload.totals : null;
 			var balance = payload ? payload.balance : null;
 			var balanceError = payload ? payload.balanceError : null;
-			var displayError = error || balanceError || null;
+			var history = payload ? payload.history : null;
+			var historyError = payload ? payload.historyError : null;
+			var displayError = error || balanceError || historyError || null;
+
+			var histTotalTokens = history
+				? (history.uncachedInputTokens || 0) + (history.cacheReadTokens || 0) + (history.cacheWriteTokens || 0) + (history.outputTokens || 0)
+				: null;
+			var histInput = history
+				? (history.uncachedInputTokens || 0) + (history.cacheReadTokens || 0) + (history.cacheWriteTokens || 0)
+				: null;
 
 			var occupancy = null;
 			var remainingContext = null;
@@ -290,7 +299,7 @@ window.__ModuleLoader__.load({
 						createElement("div", { className: "dsum-caption" },
 							"充值 ¥" + fmtMoney(balance ? balance.toppedUpBalance : null) +
 							" · 赠送 ¥" + fmtMoney(balance ? balance.grantedBalance : null) +
-							" · 估算剩余 " + fmtTokens(payload ? payload.remainingTokensEstimate : null))
+							" · 折算剩余 " + fmtTokens(payload ? payload.remainingTokensEstimate : null))
 					),
 					createElement("div", { className: "dsum-section" },
 						createElement("div", { className: "dsum-title-line" }, title === undefined ? "当前会话" : String(title)),
@@ -310,15 +319,17 @@ window.__ModuleLoader__.load({
 						)
 					),
 					createElement("div", { className: "dsum-section" },
+						createElement("div", { className: "dsum-section-title" }, "历史累计 · 真实日志"),
 						createElement("div", { className: "dsum-grid" },
-							cell("合计 Token", fmtTokens(totals ? totals.totalTokens : null)),
-							cell("全部输出", fmtTokens(totals ? totals.outputTokens : null)),
-							cell("估算花费", "¥" + fmtMoney(totals ? totals.costCny : null))
-						)
+							cell("会话数", history ? String(history.sessions) : "—"),
+							cell("Token 合计", fmtTokens(histTotalTokens)),
+							cell("累计费用", "¥" + fmtMoney(history ? history.costCny : null))
+						),
+						line("输入 / 输出", fmtTokens(histInput) + " / " + fmtTokens(history ? history.outputTokens : null))
 					),
 					createElement("div", { className: "dsum-footer" },
 						createElement("span", null, "更新 " + fmtTime(payload ? payload.now : null)),
-						createElement("span", null, "3s 轮询")
+						createElement("span", null, "官方价目表 · CNY")
 					),
 					displayError ? createElement("div", { className: "dsum-error" }, String(displayError)) : null
 			);
