@@ -1,64 +1,69 @@
 # @deepseek-ai/dsh-usage-monitor
 
-DeepSeek Harness Web GUI 插件：在页面右下角浮动面板实时显示
-token 用量、上下文占用、全部会话合计、估算花费与 DeepSeek 平台余额。
+DeepSeek Harness Web GUI 插件：在侧边栏内实时显示 DeepSeek 平台余额与
+token 用量，并从本地持久化会话日志统计真实的历史用量。
 
-## 工作原理
+## 功能
 
-- 主机端（lib/index.js）在 `/usage-monitor/state` 提供 JSON：
-  - 每个会话的 provider 用量桶（未缓存输入 / 缓存读 / 缓存写 / 输出，
-    来自 token-meter 的 `tokenUsage` 投影）与实时请求压力（`tokenMeter.measure`）
-  - `contextPressure` 投影的上下文窗口占用（projectedTokens / contextWindow）
-  - 全部会话合计与估算花费（默认按 `prices[0]` 计价，CNY / 1M tokens）
-  - DeepSeek 余额：GET https://api.deepseek.com/user/balance（默认 60s TTL 缓存，
-    用 `DEEPSEEK_API_KEY` 凭据，与聊天适配器同一把 key）
-- 客户端（dist/client.js）是一个 `dsh.client` web 平台包，
-  注册到 `shell.overlay` 槽位，每 3 秒轮询一次；页面隐藏时自动暂停。
-- `/usage-monitor/balance` 强制刷新余额缓存（面板 ↻ 按钮调用）。
+- 余额：调用 DeepSeek 官方 `GET /user/balance`（默认 60s TTL 缓存），
+  显示可用余额、充值、赠送，并按官方价格折算剩余 token。
+- 实时用量：读取 token-meter 的 provider 用量桶（未缓存输入 / 缓存读 /
+  缓存写 / 输出）与当前会话请求压力、上下文占用。
+- 历史累计：从 `ctx.sessionPersistence` 读取所有持久化会话日志，折叠
+  provider 上报的真实用量（含未加载的历史会话），无启发式估算。
+- 费用：按 DeepSeek 官方 CNY 价目表（deepseek-v4-flash / v4-pro，
+  含 2026-08-17 生效的峰谷计费，北京时间 9:00-12:00、14:00-18:00 为高峰）
+  逐样本计价；缓存写按未命中价。
+- 界面：液态玻璃质感面板，侧边栏展开时停靠在对话列表下方（页脚上方），
+  侧边栏收起时回到左上角；悬停平滑向上展开，移出延迟收起；
+  位置与宽度随侧边栏拖拽实时过渡。
 
 ## 安装
 
-插件包位于 profiles/node_modules/@deepseek-ai/dsh-usage-monitor，
-由 web profile 的 cordis.patch.yml 插入：
+插件是一个 cordis 插件包（host + `dsh.client` web 客户端包），安装到
+dsh web profile 可解析的位置（如 `$DSH_HOME/profiles/node_modules/`），
+然后在 `profiles/web/cordis.patch.yml` 中插入：
 
 ```yaml
 - insert:
     - id: dsh-usage-monitor
       name: '@deepseek-ai/dsh-usage-monitor'
+      config:
+        balanceTtlMs: 60000
+        historyTtlMs: 60000
 ```
 
-改动 cordis.patch.yml 后重启 `dsh web`（或依赖 HMR 热加载），
-然后刷新浏览器页面。
+改动后重启 `dsh web`（web profile 中 cordis HMR 默认禁用），刷新页面。
+`dist/client.js` 的改动可被 client-hmr 热更新，无需重启。
 
 ## 配置
 
 ```yaml
-- id: dsh-usage-monitor
-  name: '@deepseek-ai/dsh-usage-monitor'
-  config:
-    balanceUrl: https://api.deepseek.com/user/balance
-    apiKeyEnv: DEEPSEEK_API_KEY
-    balanceTtlMs: 60000
-    balanceTimeoutMs: 8000
-    prices:
-      - model: deepseek-chat
-        input: 2
-        cacheRead: 0.5
-        output: 8
-      - model: deepseek-reasoner
-        input: 4
-        cacheRead: 1
-        output: 16
+config:
+  balanceUrl: https://api.deepseek.com/user/balance
+  apiKeyEnv: DEEPSEEK_API_KEY   # 凭据引用（与聊天适配器同一把 key）
+  balanceTtlMs: 60000           # 余额缓存时长
+  balanceTimeoutMs: 8000        # 余额请求超时
+  historyTtlMs: 60000           # 历史日志折叠缓存时长
+  peakWindowsBeijing: [[9, 12], [14, 18]]  # 峰谷计费高峰时段（北京时间）
+  peakEffectiveAt: "2026-08-16T16:00:00Z" # 峰谷价生效时刻
 ```
 
-- `prices` 是 CNY / 每百万 token 的价格表，第一行用于花费与
-  「估算剩余 token」的计算（会话线路上不携带路由模型）。
-  请按官方定价页 https://api-docs.deepseek.com/quick_start/pricing 校准。
-- 余额需要可用凭据：在 Web 模型页写入 `DEEPSEEK_API_KEY`，
-  或导出同名环境变量。没有凭据时面板显示提示，其余功能不受影响。
+余额需要可用凭据：在 Web 模型页写入 `DEEPSEEK_API_KEY`，或导出同名
+环境变量。没有凭据时面板显示提示，用量功能不受影响。
 
-## 数据口径说明
+## 数据口径
 
-- 用量桶是 provider 报告值（token-meter 投影），请求压力含当前轮次的实时变化。
-- 估算花费不是账单数字：默认价格行 + token 用量，仅供参考。
-- 「估算剩余」= 可用余额 ÷ 输入单价（默认价格行）。
+- 用量桶与历史累计均为 provider 报告值（token-meter 投影 / 持久化日志折叠）。
+- 费用按官方价目表逐样本计价（含峰谷时段），但账单以平台实际扣费为准。
+- 「折算剩余」= 可用余额 ÷ 当前时段未命中输入单价，仅为余额到 token 的换算。
+- 客户端每 3 秒轮询，页面隐藏时暂停；面板 ↻ 按钮强制刷新余额。
+
+## 结构
+
+- `lib/index.js` — 主机端插件：注册 `/usage-monitor/state` 与
+  `/usage-monitor/balance` 路由，聚合实时会话用量、持久化历史与余额。
+- `dist/client.js` — `dsh.client` web 平台包：注册 `shell.overlay` 槽位，
+  渲染面板并轮询数据。
+- `package.json` — 声明 `dsh.client.platform: "web"` 与 `./client` 导出，
+  使 client-modules 把该包注入 `window.__DSH_BOOT__`。
