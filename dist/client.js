@@ -59,6 +59,10 @@ window.__ModuleLoader__.load({
 			".dsum-title-line{font-size:12px;line-height:17px;color:var(--dsw-alias-label-secondary,rgba(232,234,237,.62));",
 			"text-overflow:ellipsis;white-space:nowrap;overflow:hidden}",
 			".dsum-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}",
+			".dsum-line{display:flex;justify-content:space-between;gap:10px;font-size:12px;line-height:17px;",
+			"font-variant-numeric:tabular-nums}",
+			".dsum-line span:first-child{color:var(--dsw-alias-label-secondary,rgba(232,234,237,.62))}",
+			".dsum-line span:last-child{text-align:right;color:var(--dsw-alias-label-primary,#e8eaed)}",
 			".dsum-cell{min-width:0;display:flex;flex-direction:column;gap:1px;padding:4px 6px;border-radius:8px;",
 			"background:var(--dsw-alias-interactive-bg-hover,rgba(255,255,255,.04))}",
 			".dsum-cell-label{font-size:11px;line-height:15px;color:var(--dsw-alias-label-tertiary,rgba(232,234,237,.45))}",
@@ -113,6 +117,12 @@ window.__ModuleLoader__.load({
 			return createElement("div", { className: "dsum-cell" },
 				createElement("span", { className: "dsum-cell-label" }, label),
 				createElement("span", { className: "dsum-cell-value" }, value));
+		}
+
+		function line(label, value, valueClass) {
+			return createElement("div", { className: "dsum-line" },
+				createElement("span", null, label),
+				createElement("span", { className: valueClass || undefined }, value));
 		}
 
 		function Panel(props) {
